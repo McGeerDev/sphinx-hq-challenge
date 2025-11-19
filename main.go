@@ -43,12 +43,14 @@ type Portal struct {
 }
 
 type MortySender interface {
-	Send(client *http.Client, planet PlanetNumber)
+	Send(client *http.Client)
 }
 
 type Planet struct {
-	SendMorties  int
-	SurvivalRate float32
+	PlanetNumber       PlanetNumber
+	CurrentMortyAmount int
+	Survives           int
+	SurvivalRate       float32
 }
 
 type PlanetNumber int
@@ -61,7 +63,7 @@ const (
 
 func main() {
 	handler := slog.NewTextHandler(os.Stdout, &slog.HandlerOptions{
-		Level: slog.LevelDebug,
+		Level: slog.LevelInfo,
 	})
 	logger := slog.New(handler)
 	slog.SetDefault(logger)
@@ -75,40 +77,31 @@ func main() {
 	slog.Info(fmt.Sprintf("StartState: %+v", start))
 
 	mortiesCount := start.MortiesInCitadel
-	cobMorties := 2
-	cronMorties := 2
-	purgeMorties := 2
+
+	cobPlanet := Planet{
+		PlanetNumber:       0,
+		CurrentMortyAmount: 2,
+		Survives:           0,
+		SurvivalRate:       0,
+	}
+
+	cronenPlanet := Planet{
+		PlanetNumber:       1,
+		CurrentMortyAmount: 2,
+		Survives:           0,
+		SurvivalRate:       0,
+	}
+	purgePlanet := Planet{
+		PlanetNumber:       2,
+		CurrentMortyAmount: 2,
+		Survives:           0,
+		SurvivalRate:       0,
+	}
 
 	for mortiesCount > 0 {
-		if cobMorties+cronMorties+purgeMorties > mortiesCount && mortiesCount > 3 {
-			cobMorties = 3
-			cronMorties = mortiesCount - cobMorties
-			purgeMorties = mortiesCount - cronMorties
-		} else if mortiesCount <= 3 {
-			cobMorties = mortiesCount
-			cronMorties = 0
-			purgeMorties = 0
-		}
-		onACobSurvived := SendMorties(client, cobMorties, OnACob)
-		if onACobSurvived && cobMorties < 3 {
-			cobMorties++
-		} else if !onACobSurvived && cobMorties > 1 {
-			cobMorties--
-		}
-
-		cronenbergWorldSurvived := SendMorties(client, cronMorties, CronenBergWorld)
-		if cronenbergWorldSurvived && cronMorties < 3 {
-			cronMorties++
-		} else if !cronenbergWorldSurvived && cronMorties > 1 {
-			cronMorties--
-		}
-
-		purgePlanetSurvived := SendMorties(client, purgeMorties, PurgePlanet)
-		if purgePlanetSurvived && purgeMorties < 3 {
-			purgeMorties++
-		} else if !purgePlanetSurvived && purgeMorties > 1 {
-			purgeMorties--
-		}
+		cobPlanet.Send(client)
+		cronenPlanet.Send(client)
+		purgePlanet.Send(client)
 
 		status := GetEpisodeStatus(client)
 		slog.Info("Status", "value", fmt.Sprintf("%+v", status))
@@ -123,13 +116,13 @@ type SendMorty struct {
 	MortyCount int `json:"morty_count"`
 }
 
-func SendMorties(client *http.Client, m int, planet PlanetNumber) bool {
+func (p *Planet) Send(client *http.Client) {
 	slog.Info(
 		"send morties parameters",
-		"mortyCount", m,
-		"planet", planet,
+		"mortyCount", p.CurrentMortyAmount,
+		"planet", p.PlanetNumber,
 	)
-	sm := &SendMorty{Planet: int(planet), MortyCount: m}
+	sm := &SendMorty{Planet: int(p.PlanetNumber), MortyCount: p.CurrentMortyAmount}
 	jsonBody, err := json.Marshal(*sm)
 	if err != nil {
 		slog.Error(err.Error())
@@ -166,7 +159,44 @@ func SendMorties(client *http.Client, m int, planet PlanetNumber) bool {
 			"response body", string(b),
 		)
 	}
-	return portal.Survived
+
+	slog.Debug("morties survived",
+		"planet", p.PlanetNumber,
+		"morties sent", p.CurrentMortyAmount,
+		"survived", portal.Survived,
+		"total survives", p.Survives,
+		"TotalPlanetJessicaCount", portal.MortiesOnPlanetJessica,
+	)
+	if portal.Survived {
+		p.Survives += p.CurrentMortyAmount
+	}
+	if portal.MortiesOnPlanetJessica != 0 {
+		p.SurvivalRate = float32(p.Survives) / float32(portal.MortiesOnPlanetJessica)
+	} else {
+		p.SurvivalRate = 0
+	}
+
+	slog.Debug("morties survival rate",
+		"planet", p.PlanetNumber,
+		"total survives", p.Survives,
+		"SurvivalRate", p.SurvivalRate,
+	)
+	sr := p.SurvivalRate
+	if sr > 0.66 && sr <= 1.0 {
+		p.CurrentMortyAmount = 3
+	} else if sr > 0.33 && sr <= 0.66 {
+		p.CurrentMortyAmount = 2
+	} else {
+		p.CurrentMortyAmount = 1
+	}
+
+	if portal.MortiesInCitadel < 3 {
+		p.CurrentMortyAmount = portal.MortiesInCitadel
+	}
+	slog.Debug("morties count",
+		"planet", p.PlanetNumber,
+		"current morty amount", p.CurrentMortyAmount,
+	)
 }
 
 func StartEpisode(client *http.Client) Status {
@@ -233,12 +263,3 @@ func GetEpisodeStatus(client *http.Client) Status {
 
 	return *status
 }
-
-// strat:
-// Send 2 morties to each planet
-// Get responses
-// When a morty dies send less morties on next request
-// if morties survive send more on next request
-
-// Plan:
-// Request all state from
