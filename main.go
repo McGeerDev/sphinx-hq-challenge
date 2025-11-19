@@ -8,7 +8,6 @@ import (
 	"log/slog"
 	"net/http"
 	"os"
-	"time"
 )
 
 // https://challenge.sphinxhq.com/
@@ -20,8 +19,6 @@ const (
 	START_ENDPOINT  = "/api/mortys/start/"
 	PORTAL_ENDPOINT = "/api/mortys/portal/"
 	STATUS_ENDPOINT = "/api/mortys/status/"
-	// UTILS
-	RATE_LIMIT = 30 * time.Second
 )
 
 var (
@@ -45,17 +42,26 @@ type Portal struct {
 	StepsTaken             int  `json:"steps_taken"`
 }
 
-type Planet int
+type MortySender interface {
+	Send(client *http.Client, planet PlanetNumber)
+}
+
+type Planet struct {
+	SendMorties  int
+	SurvivalRate float32
+}
+
+type PlanetNumber int
 
 const (
-	OnACob Planet = iota
+	OnACob PlanetNumber = iota
 	CronenBergWorld
 	PurgePlanet
 )
 
 func main() {
 	handler := slog.NewTextHandler(os.Stdout, &slog.HandlerOptions{
-		Level: slog.LevelInfo,
+		Level: slog.LevelDebug,
 	})
 	logger := slog.New(handler)
 	slog.SetDefault(logger)
@@ -74,10 +80,14 @@ func main() {
 	purgeMorties := 2
 
 	for mortiesCount > 0 {
-		if cobMorties+cronMorties+purgeMorties > mortiesCount {
+		if cobMorties+cronMorties+purgeMorties > mortiesCount && mortiesCount > 3 {
 			cobMorties = 3
 			cronMorties = mortiesCount - cobMorties
 			purgeMorties = mortiesCount - cronMorties
+		} else if mortiesCount <= 3 {
+			cobMorties = mortiesCount
+			cronMorties = 0
+			purgeMorties = 0
 		}
 		onACobSurvived := SendMorties(client, cobMorties, OnACob)
 		if onACobSurvived && cobMorties < 3 {
@@ -113,13 +123,13 @@ type SendMorty struct {
 	MortyCount int `json:"morty_count"`
 }
 
-func SendMorties(client *http.Client, mortyCount int, planet Planet) bool {
+func SendMorties(client *http.Client, m int, planet PlanetNumber) bool {
 	slog.Info(
 		"send morties parameters",
-		"mortyCount", mortyCount,
+		"mortyCount", m,
 		"planet", planet,
 	)
-	sm := &SendMorty{Planet: 0, MortyCount: 2}
+	sm := &SendMorty{Planet: int(planet), MortyCount: m}
 	jsonBody, err := json.Marshal(*sm)
 	if err != nil {
 		slog.Error(err.Error())
