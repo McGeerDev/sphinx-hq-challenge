@@ -6,9 +6,9 @@ The challenge is to send as many morties as possible to Jessica planet.
 
 ## SOLUTION 1
 
-Send 2 Morties to each planet. 
-If the Morties survive, send **1 more** on the next request
-If the Morties don't survive, send **1 less** on the next request
+Send 2 Morties to each planet.  
+If the Morties survive, send **1 more** on the next request  
+If the Morties don't survive, send **1 less** on the next request  
 
 ### Result
 |Rescued|Lost|Rate|
