@@ -12,10 +12,6 @@ import (
 )
 
 // https://challenge.sphinxhq.com/
-// 1000 morties on starting point
-// 3 planets with varying survival rates
-// 0 morties on the end point
-//
 
 const (
 	BASE_URL = "https://challenge.sphinxhq.com"
@@ -69,7 +65,9 @@ func main() {
 	client := &http.Client{}
 
 	start := StartEpisode(client)
+
 	slog.Info(fmt.Sprintf("StartState: %+v", start))
+
 	mortiesCount := start.MortiesInCitadel
 	cobMorties := 2
 	cronMorties := 2
@@ -227,7 +225,7 @@ func GetEpisodeStatus(client *http.Client) Status {
 }
 
 // strat:
-// Send 3 morties to each planet
+// Send 2 morties to each planet
 // Get responses
 // When a morty dies send less morties on next request
 // if morties survive send more on next request
