@@ -11,7 +11,8 @@ If the Morties survive, send **1 more** on the next request
 If the Morties don't survive, send **1 less** on the next request
 
 ### Result
-|Rescued|Lost|Rate
+|Rescued|Lost|Rate|
+|:---:|:---:|:---jk:|
 | 526 | 474 | 53% |
 
 Solution 2
