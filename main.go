@@ -50,6 +50,7 @@ type Planet struct {
 	PlanetNumber       PlanetNumber
 	CurrentMortyAmount int
 	Survives           int
+	TotalSent          int
 	SurvivalRate       float32
 }
 
@@ -99,12 +100,21 @@ func main() {
 	}
 
 	for mortiesCount > 0 {
+
 		cobPlanet.Send(client)
 		cronenPlanet.Send(client)
 		purgePlanet.Send(client)
 
 		status := GetEpisodeStatus(client)
-		slog.Info("Status", "value", fmt.Sprintf("%+v", status))
+		rate := float32(status.MortiesOnPlanetJessica) / float32(1000)
+		slog.Info("Status",
+			"MortiesInCitadel",
+			status.MortiesInCitadel,
+			"MortiesOnPlanetJessica",
+			status.MortiesOnPlanetJessica,
+			"RATE",
+			rate,
+		)
 
 		// Update mortyCount
 		mortiesCount = status.MortiesInCitadel
@@ -117,11 +127,12 @@ type SendMorty struct {
 }
 
 func (p *Planet) Send(client *http.Client) {
-	slog.Info(
+	slog.Debug(
 		"send morties parameters",
 		"mortyCount", p.CurrentMortyAmount,
 		"planet", p.PlanetNumber,
 	)
+	p.TotalSent += p.CurrentMortyAmount
 	sm := &SendMorty{Planet: int(p.PlanetNumber), MortyCount: p.CurrentMortyAmount}
 	jsonBody, err := json.Marshal(*sm)
 	if err != nil {
@@ -170,21 +181,18 @@ func (p *Planet) Send(client *http.Client) {
 	if portal.Survived {
 		p.Survives += p.CurrentMortyAmount
 	}
-	if portal.MortiesOnPlanetJessica != 0 {
-		p.SurvivalRate = float32(p.Survives) / float32(portal.MortiesOnPlanetJessica)
-	} else {
-		p.SurvivalRate = 0
-	}
+	p.SurvivalRate = float32(p.Survives) / float32(p.TotalSent)
 
 	slog.Debug("morties survival rate",
 		"planet", p.PlanetNumber,
 		"total survives", p.Survives,
+		"total sent", p.TotalSent,
 		"SurvivalRate", p.SurvivalRate,
 	)
 	sr := p.SurvivalRate
-	if sr > 0.66 && sr <= 1.0 {
+	if sr > 0.54 && sr <= 1.0 {
 		p.CurrentMortyAmount = 3
-	} else if sr > 0.33 && sr <= 0.66 {
+	} else if sr > 0.46 && sr <= 0.54 {
 		p.CurrentMortyAmount = 2
 	} else {
 		p.CurrentMortyAmount = 1
@@ -193,9 +201,10 @@ func (p *Planet) Send(client *http.Client) {
 	if portal.MortiesInCitadel < 3 {
 		p.CurrentMortyAmount = portal.MortiesInCitadel
 	}
-	slog.Debug("morties count",
+	slog.Info("morties count",
 		"planet", p.PlanetNumber,
 		"current morty amount", p.CurrentMortyAmount,
+		"survival rate", p.SurvivalRate,
 	)
 }
 
