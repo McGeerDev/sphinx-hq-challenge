@@ -43,9 +43,31 @@ Update: I tried to compensate for the standard deviation by settig the ranges be
 This method does not consider the standard deviation of the survivability of the each planet.
 This method further ignores the impact of losing 1 morty vs 3 morties has on a planet's survivability.
 
+## Solution 3
 
+I started searching online and found that these problems are called the multi-arm bandit problems.  
+After some more searching I found [this white paper](https://www.cs.mcgill.ca/~vkules/bandits.pdf)
+In the use case of the clinical trials the paper recommened the _Epsilon Greedy_ algorithm as the most optimal solution. 
+And seeing as I know nothing, I'll be implementing the _Epsilon Greedy_ algorithm here
 
+#### My understanding of Epsilon Greedy
 
+You select an epsilon, which is the essentially the ratio between exploring and exploiting  
+Then you give the algorithm a random number **P**:  
 
+_if_ the **P** < Epsilon _then_ do a random action 
+_else_ choose the current best action
+
+I am defining an action as the combination of how many morties are sent to each planet and the survival rate of each action
+
+### Result
+| Rescued | Lost | Rate  |
+|:-------:|:----:|:-----:|
+|   520   | 480  |  52%  |
+
+### Problem with the method (applied here)
+
+Defining the winning action.  
+What I went with was to choose the combination of morties sent to each planet against the average survival rate and the highest survival rate won.
 
 
